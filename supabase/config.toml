@@ -1,0 +1,4 @@
+project_id = "ieozlqagfhdutidprzyw"
+
+[functions.mobinime-proxy]
+verify_jwt = false
