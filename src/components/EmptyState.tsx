@@ -2,7 +2,7 @@ import { Search, Film, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type EmptyStateType = 'search' | 'anime' | 'error';
+type EmptyStateType = 'search' | 'anime' | 'donghua' | 'error';
 
 interface EmptyStateProps {
   type?: EmptyStateType;
@@ -15,6 +15,7 @@ interface EmptyStateProps {
 const iconMap = {
   search: Search,
   anime: Film,
+  donghua: Film,
   error: AlertCircle,
 };
 
@@ -26,6 +27,10 @@ const defaultContent = {
   anime: {
     title: 'No anime found',
     description: 'There are no anime in this category yet.',
+  },
+  donghua: {
+    title: 'No donghua found',
+    description: 'There are no donghua in this category yet.',
   },
   error: {
     title: 'Something went wrong',

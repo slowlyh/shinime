@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Play, Star, Clock, Tag, Calendar, ChevronLeft, Loader2 } from 'lucide-react';
+import { Play, Star, Clock, Tag, Calendar, ChevronLeft, Loader2, Layers } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { GenreBadge } from '@/components/GenreBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { mobinime, type AnimeItem, type Episode } from '@/services/mobinime';
+import { anichin, type AnimeItem, type Episode } from '@/services/anichin';
 import { cn } from '@/lib/utils';
 
 export default function AnimeDetailPage() {
@@ -21,7 +21,7 @@ export default function AnimeDetailPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await mobinime.detail(id);
+      const data = await anichin.detail(id);
       setAnime(data);
     } catch (err: any) {
       setError(err.message);
@@ -51,9 +51,9 @@ export default function AnimeDetailPage() {
         <Navbar />
         <main className="min-h-screen pt-20">
           <div className="container mx-auto px-4 py-12">
-            <EmptyState 
-              type="error" 
-              description={error || 'Anime not found'} 
+            <EmptyState
+              type="error"
+              description={error || 'Donghua not found'}
               onRetry={fetchDetail}
             />
             <div className="text-center mt-4">
@@ -67,26 +67,29 @@ export default function AnimeDetailPage() {
     );
   }
 
-  // Handle different image field names - API uses image_cover
   const imageUrl = anime.image_cover || anime.imageCover || anime.poster || anime.thumbnail || '/placeholder.svg';
-  
-  // Handle episodes - sort ascending by number
-  const episodes = [...(anime.episodes || [])].sort((a, b) => (a.number || 0) - (b.number || 0));
-  
-  // Handle description (API returns as 'content')
-  const description = anime.content || anime.description;
-  
-  // Handle genres (API returns as 'categories')
-  const genres = anime.categories?.map(c => c.title) || anime.genres || [];
-  
-  // Handle episode count
-  const totalEpisodes = anime.totalEpisode || anime.totalEpisodes || episodes.length;
+
+  // Episodes dari source baru sudah ascending; tampilkan terbaru di atas untuk list, ascending untuk grid
+  const episodes = [...(anime.episodes || [])];
+  const latestEpisodes = [...episodes].reverse().slice(0, 8);
+
+  const description = anime.synopsis || anime.content || anime.description;
+  const genres = anime.genres || [];
+  const totalEpisodes = anime.totalEpisodes || anime.totalEpisode || episodes.length;
+  const meta = anime.metadata || {};
+  const status = anime.status || meta.status;
+  const year = anime.year || meta.released?.match(/\d{4}/)?.[0];
+  const studio = meta.studio;
+  const season = meta.season;
+  const duration = meta.duration;
+  const network = meta.network;
+  const type = anime.type || meta.type || 'Donghua';
 
   return (
     <>
       <Helmet>
         <title>{anime.title} - shinime</title>
-        <meta name="description" content={description || `Watch ${anime.title} online for free on shinime.`} />
+        <meta name="description" content={description || `Watch ${anime.title} donghua online for free on shinime.`} />
       </Helmet>
 
       <Navbar />
@@ -94,7 +97,6 @@ export default function AnimeDetailPage() {
       <main className="min-h-screen pt-20">
         {/* Hero Banner */}
         <div className="relative min-h-[60vh] md:min-h-[50vh] overflow-hidden">
-          {/* Background Image */}
           <div className="absolute inset-0">
             <img
               src={imageUrl}
@@ -108,11 +110,10 @@ export default function AnimeDetailPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/50" />
           </div>
 
-          {/* Content */}
           <div className="container max-w-7xl mx-auto px-4 h-full relative z-10">
             <div className="h-full flex items-end pb-8 pt-8 md:pt-0">
               <div className="flex flex-col md:flex-row gap-6 md:gap-8 fade-in w-full">
-                {/* Poster - Mobile centered, Desktop left */}
+                {/* Poster */}
                 <div className="w-40 sm:w-48 md:w-56 flex-shrink-0 mx-auto md:mx-0 mt-4 md:mt-0">
                   <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-card border border-border/50 bg-muted">
                     <img
@@ -140,7 +141,7 @@ export default function AnimeDetailPage() {
                   <h1 className="text-2xl md:text-4xl font-bold mb-2">
                     {anime.title}
                   </h1>
-                  
+
                   {/* Alternative Title */}
                   {anime.other_title && (
                     <p className="text-sm text-muted-foreground mb-3 italic">
@@ -156,26 +157,27 @@ export default function AnimeDetailPage() {
                         <span>{anime.rating}</span>
                       </div>
                     )}
-                    {anime.year && (
+                    {year && (
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        <span>{anime.year}</span>
+                        <span>{year}</span>
                       </div>
                     )}
-                    {anime.status && (
+                    {status && (
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        <span>{anime.status}</span>
+                        <span>{status}</span>
                       </div>
                     )}
-                    {anime.type && (
+                    {type && (
                       <div className="flex items-center gap-1">
                         <Tag className="w-4 h-4" />
-                        <span className="capitalize">{anime.type}</span>
+                        <span className="capitalize">{type}</span>
                       </div>
                     )}
                     {totalEpisodes > 0 && (
                       <div className="flex items-center gap-1">
+                        <Layers className="w-4 h-4" />
                         <span>{totalEpisodes} Episodes</span>
                       </div>
                     )}
@@ -190,6 +192,14 @@ export default function AnimeDetailPage() {
                     </div>
                   )}
 
+                  {/* Extra metadata */}
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground mb-5">
+                    {studio && <span>Studio: <span className="text-foreground">{studio}</span></span>}
+                    {network && <span>Network: <span className="text-foreground">{network}</span></span>}
+                    {season && <span>Season: <span className="text-foreground">{season}</span></span>}
+                    {duration && <span>Duration: <span className="text-foreground">{duration}</span></span>}
+                  </div>
+
                   {/* Watch Button */}
                   {episodes.length > 0 && (
                     <Button
@@ -197,9 +207,9 @@ export default function AnimeDetailPage() {
                       size="lg"
                       className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-glow"
                     >
-                      <Link to={`/watch/${id}/${episodes[0].id}`}>
+                      <Link to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(episodes[episodes.length - 1].id)}`}>
                         <Play className="w-5 h-5 mr-2 fill-current" />
-                        Watch Now
+                        Watch Latest Episode
                       </Link>
                     </Button>
                   )}
@@ -211,18 +221,46 @@ export default function AnimeDetailPage() {
 
         {/* Content Section */}
         <div className="container max-w-7xl mx-auto px-4 py-8">
-          {/* Description */}
+          {/* Synopsis */}
           {description && (
             <section className="mb-8">
               <h2 className="text-lg font-semibold mb-3">Synopsis</h2>
-              <div 
-                className="text-muted-foreground leading-relaxed max-w-4xl prose prose-invert prose-sm"
-                dangerouslySetInnerHTML={{ __html: description }}
-              />
+              <p className="text-muted-foreground leading-relaxed max-w-4xl">
+                {description}
+              </p>
             </section>
           )}
 
-          {/* Episodes */}
+          {/* Latest Episodes */}
+          {latestEpisodes.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-lg font-semibold mb-4">Latest Episodes</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {latestEpisodes.map((ep: Episode) => (
+                  <Link
+                    key={ep.id}
+                    to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(ep.id)}`}
+                    className="group flex items-center gap-3 p-3 rounded-lg bg-card border border-border/50 hover:border-accent hover:bg-accent/5 transition-all"
+                  >
+                    <div className="w-10 h-10 shrink-0 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-semibold text-sm">
+                      {ep.number}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate group-hover:text-accent transition-colors">
+                        {ep.title || `Episode ${ep.number}`}
+                      </p>
+                      {ep.date && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{ep.date}</p>
+                      )}
+                    </div>
+                    <Play className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* All Episodes */}
           {episodes.length > 0 && (
             <section>
               <h2 className="text-lg font-semibold mb-4">
@@ -232,11 +270,11 @@ export default function AnimeDetailPage() {
                 {episodes.map((episode: Episode, index: number) => (
                   <Link
                     key={episode.id}
-                    to={`/watch/${id}/${episode.id}`}
+                    to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(episode.id)}`}
                     className={cn(
                       "group relative flex items-center justify-center p-3 rounded-lg bg-card border border-border/50 hover:border-accent hover:bg-accent/10 transition-all opacity-0 slide-up"
                     )}
-                    style={{ animationDelay: `${index * 0.02}s`, animationFillMode: 'forwards' }}
+                    style={{ animationDelay: `${Math.min(index, 30) * 0.02}s`, animationFillMode: 'forwards' }}
                   >
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Play className="w-4 h-4 text-accent" />
@@ -252,10 +290,10 @@ export default function AnimeDetailPage() {
 
           {/* No Episodes State */}
           {episodes.length === 0 && (
-            <EmptyState 
-              type="anime" 
+            <EmptyState
+              type="donghua"
               title="No episodes available"
-              description="Episodes for this anime are not available yet."
+              description="Episodes for this donghua are not available yet."
             />
           )}
         </div>

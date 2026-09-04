@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { Tag, ArrowRight } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { EmptyState } from '@/components/EmptyState';
-import { mobinime, type Genre } from '@/services/mobinime';
+import { anichin, type Genre } from '@/services/anichin';
 import { cn } from '@/lib/utils';
 
 // Fun gradient colors for genres
@@ -28,7 +28,7 @@ export default function GenreListPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await mobinime.genreList();
+      const data = await anichin.genreList();
       setGenres(data || []);
     } catch (err: any) {
       setError(err.message);
@@ -44,8 +44,8 @@ export default function GenreListPage() {
   return (
     <>
       <Helmet>
-        <title>Anime Genres - shinime</title>
-        <meta name="description" content="Browse anime by genre on shinime. Find action, romance, comedy, horror, and more anime genres." />
+        <title>Donghua Genres - shinime</title>
+        <meta name="description" content="Browse donghua by genre on shinime. Find action, romance, comedy, martial arts, and more donghua genres." />
       </Helmet>
 
       <Navbar />
@@ -88,7 +88,7 @@ export default function GenreListPage() {
                 return (
                   <Link
                     key={genre.id}
-                    to={`/anime/list/series?genre=${slug}`}
+                    to={`/latest?genre=${slug}`}
                     className={cn(
                       "group relative flex items-center justify-between p-4 rounded-xl bg-gradient-to-br border border-border/50 transition-all duration-300 hover-glow opacity-0 slide-up",
                       gradientClass

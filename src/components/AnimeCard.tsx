@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Play, Star } from 'lucide-react';
-import type { AnimeItem } from '@/services/mobinime';
+import type { AnimeItem } from '@/services/anichin';
 
 interface AnimeCardProps {
   anime: AnimeItem;
@@ -18,7 +18,7 @@ export function AnimeCard({ anime, index = 0, showEpisode = false }: AnimeCardPr
   
   return (
     <Link
-      to={`/anime/${anime.id}`}
+      to={`/donghua/${anime.id}`}
       className="group relative block rounded-xl overflow-hidden hover-glow opacity-0 slide-up"
       style={{ animationDelay: `${index * 0.05}s`, animationFillMode: 'forwards' }}
     >

@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Play, Film, Tv, Clapperboard, Tag } from 'lucide-react';
+import { Search, Menu, X, Play, Tag, Tv } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const navLinks = [
-  { name: 'Series', href: '/anime/list/series', icon: Tv },
-  { name: 'Movies', href: '/anime/list/movie', icon: Film },
-  { name: 'OVA', href: '/anime/list/ova', icon: Clapperboard },
+  { name: 'Latest', href: '/latest', icon: Tv },
   { name: 'Genres', href: '/genres', icon: Tag },
 ];
 

@@ -7,26 +7,26 @@ import { AnimeCard } from '@/components/AnimeCard';
 import { LoadingGrid } from '@/components/LoadingGrid';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { mobinime, type AnimeItem } from '@/services/mobinime';
+import { anichin, type AnimeItem } from '@/services/anichin';
 
 const SUGGESTIONS = [
-  'Naruto',
-  'One Piece',
-  'Attack on Titan',
-  'Demon Slayer',
-  'Jujutsu Kaisen',
-  'My Hero Academia',
+  'Battle Through The Heavens',
+  'Perfect World',
+  'Soul Land',
+  'Throne of Seal',
+  'Renegade Immortal',
+  'Martial Universe',
 ];
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
-  
+
   const [results, setResults] = useState<AnimeItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   const fetchResults = useCallback(async (pageNum: number, isNewSearch = false) => {
     if (!query) return;
@@ -34,15 +34,14 @@ export default function SearchPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await mobinime.search(query, { page: pageNum.toString(), count: '20' });
-      
+      const data = await anichin.searchPaged(query, pageNum);
+
       if (isNewSearch) {
-        setResults(data || []);
+        setResults(data.items || []);
       } else {
-        setResults((prev) => [...prev, ...(data || [])]);
+        setResults((prev) => [...prev, ...(data.items || [])]);
       }
-      
-      setHasMore((data || []).length === 20);
+      setHasMore(Boolean(data.hasNextPage));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -52,11 +51,12 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (query) {
-      setPage(0);
+      setPage(1);
       setResults([]);
-      fetchResults(0, true);
+      fetchResults(1, true);
     } else {
       setResults([]);
+      setHasMore(false);
     }
   }, [query, fetchResults]);
 
@@ -70,7 +70,7 @@ export default function SearchPage() {
     <>
       <Helmet>
         <title>{query ? `Search: ${query}` : 'Search'} - shinime</title>
-        <meta name="description" content={`Search results for "${query}" on shinime. Find your favorite anime series, movies, and OVAs.`} />
+        <meta name="description" content={`Search results for "${query}" on shinime. Find your favorite donghua series.`} />
       </Helmet>
 
       <Navbar />
@@ -92,17 +92,15 @@ export default function SearchPage() {
 
           {/* Results */}
           {!query ? (
-            // Empty search - show suggestions
             <div className="py-12 text-center">
               <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="w-8 h-8 text-accent" />
               </div>
               <h2 className="text-xl font-semibold mb-2">Start searching</h2>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Enter a search term to find your favorite anime series, movies, and more.
+                Enter a search term to find your favorite donghua series and more.
               </p>
-              
-              {/* Suggestions */}
+
               <div className="max-w-lg mx-auto">
                 <p className="text-sm text-muted-foreground mb-3">Popular searches:</p>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -118,40 +116,40 @@ export default function SearchPage() {
                 </div>
               </div>
             </div>
+          ) : error ? (
+            <EmptyState type="error" description={error} onRetry={() => fetchResults(page, true)} />
           ) : loading && results.length === 0 ? (
             <LoadingGrid count={12} />
-          ) : error ? (
-            <EmptyState 
-              type="error" 
-              description={error} 
-              onRetry={() => fetchResults(0, true)}
-            />
           ) : results.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {results.map((anime, index) => (
-                  <AnimeCard key={`${anime.id}-${index}`} anime={anime} index={index} />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4 md:gap-6">
+                {results.map((item: AnimeItem, index: number) => (
+                  <AnimeCard key={item.id + '-' + index} anime={item} index={index} />
                 ))}
               </div>
 
               {hasMore && (
-                <div className="flex justify-center mt-8">
+                <div className="flex justify-center mt-10">
                   <Button
                     onClick={loadMore}
                     disabled={loading}
                     variant="outline"
-                    className="min-w-[200px]"
+                    className="px-8 gap-2"
                   >
                     {loading ? 'Loading...' : 'Load More'}
                   </Button>
                 </div>
               )}
+              {!hasMore && (
+                <p className="text-center text-muted-foreground text-sm mt-10">
+                  End of results
+                </p>
+              )}
             </>
           ) : (
-            <EmptyState 
-              type="search" 
-              title="No results found"
-              description={`We couldn't find any anime matching "${query}". Try different keywords.`}
+            <EmptyState
+              type="search"
+              description={`No donghua found for "${query}". Try a different keyword.`}
             />
           )}
         </div>
