@@ -1,61 +1,72 @@
 // ============================================================
-// GET /api/anichin/search?q=...&page=1 — Search donghua
+// GET /api/anichin/search?q=...&page=1 — Search Anime
+// Powered by Oploverz Anime Engine
 // ============================================================
-import { CORS_HEADERS, json, fetchHtml, BASE_URL, slugFromUrl } from "../_anichin.js";
-import * as cheerio from "cheerio";
+import {
+  CORS_HEADERS,
+  json,
+  getAllSeries,
+  fmtSeries,
+} from "../_anime.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).set(CORS_HEADERS).end();
-  if (req.method !== "GET") return json(res, { status: 405, message: "Method not allowed" }, 405);
+  if (req.method !== "GET")
+    return json(res, { status: 405, message: "Method not allowed" }, 405);
 
   const query = (req.query.q || "").trim();
-  if (!query) return json(res, { status: 400, message: "Query pencarian diperlukan" }, 400);
+  if (!query)
+    return json(res, { status: 400, message: "Query pencarian diperlukan" }, 400);
 
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const url =
-      page > 1
-        ? `${BASE_URL}/page/${page}/?s=${encodeURIComponent(query)}`
-        : `${BASE_URL}/?s=${encodeURIComponent(query)}`;
+    const perPage = 20;
+    const qLower = query.toLowerCase();
 
-    const html = await fetchHtml(url);
-    const $ = cheerio.load(html);
+    const all = await getAllSeries();
 
-    const results = [];
-    $(".listupd .bsx, .animpost, article.bs .bsx").each((_, el) => {
-      const a = $(el).find("a").first();
-      const link = a.attr("href") || "";
-      const rawTitle =
-        $(el).find(".tt h2, .tt, h2").first().text().trim() ||
-        a.attr("title")?.trim() ||
-        "";
-      if (!link || !rawTitle) return;
-      const title = rawTitle.split("\n")[0].replace(/\t+/g, " ").trim();
-      const status = $(el).find(".bt .epx, .status").text().trim() || undefined;
-      const type = $(el).find(".typez").first().text().trim() || "Donghua";
-      const thumbnail = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || null;
-      results.push({
-        id: slugFromUrl(link),
-        title,
-        status,
-        type,
-        poster: thumbnail,
-        image_cover: thumbnail,
-        url: link,
-      });
+    // Filter anime
+    const matched = all.filter((s) => {
+      const title = (s.title || "").toLowerCase();
+      const jp = (s.japaneseTitle || "").toLowerCase();
+      const slug = (s.slug || "").toLowerCase();
+      const desc = (s.description || "").toLowerCase();
+      return (
+        title.includes(qLower) ||
+        jp.includes(qLower) ||
+        slug.includes(qLower) ||
+        desc.includes(qLower)
+      );
     });
 
-    // dedup
-    const seen = new Set();
-    const items = results.filter((r) => !seen.has(r.id) && seen.add(r.id));
+    // Urutkan relevansi: judul diawali query > judul mengandung query > lainnya
+    matched.sort((a, b) => {
+      const aTitle = (a.title || "").toLowerCase();
+      const bTitle = (b.title || "").toLowerCase();
+      const aStarts = aTitle.startsWith(qLower);
+      const bStarts = bTitle.startsWith(qLower);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return 0;
+    });
 
-    const hasNextPage =
-      $(".pagination .next, .hpage .r, .next, .pagination a:contains('Next')").length > 0 ||
-      $(`.pagination a[href*="/page/${page + 1}/"]`).length > 0;
+    const startIndex = (page - 1) * perPage;
+    const items = matched
+      .slice(startIndex, startIndex + perPage)
+      .map(fmtSeries)
+      .filter(Boolean);
+
+    const hasNextPage = startIndex + perPage < matched.length;
 
     return json(res, {
       status: 200,
-      data: { query, page, hasNextPage, items },
+      data: {
+        query,
+        page,
+        total: matched.length,
+        hasNextPage,
+        items,
+      },
     });
   } catch (err) {
     return json(res, { status: err.status || 500, message: err.message }, err.status || 500);

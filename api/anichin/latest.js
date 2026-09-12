@@ -1,39 +1,57 @@
 // ============================================================
-// GET /api/anichin/latest?page=1 — Latest Release + pagination
+// GET /api/anichin/latest?page=1 — Latest Release & Anime List
+// Powered by Oploverz Anime Engine
 // ============================================================
-import { CORS_HEADERS, json, fetchHtml, parseBsxList, BASE_URL } from "../_anichin.js";
-import * as cheerio from "cheerio";
+import {
+  CORS_HEADERS,
+  json,
+  fetchDataJson,
+  getAllSeries,
+  fmtSeries,
+  fmtEpisodeCard,
+  BASE_URL,
+} from "../_anime.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).set(CORS_HEADERS).end();
-  if (req.method !== "GET") return json(res, { status: 405, message: "Method not allowed" }, 405);
+  if (req.method !== "GET")
+    return json(res, { status: 405, message: "Method not allowed" }, 405);
 
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const url = page > 1 ? `${BASE_URL}/page/${page}/` : `${BASE_URL}/`;
-    const html = await fetchHtml(url);
-    const $ = cheerio.load(html);
+    const perPage = 24;
 
-    // Halaman depan memuat latest di .listupd pertama (Latest Release);
-    // halaman /page/N memuat .listupd utama
-    let items = [];
-    if (page === 1) {
-      $('.releases').filter((_, el) => $(el).text().trim() === "Latest Release").each((__, rel) => {
-        items.push(...parseBsxList($, $(rel).closest(".bixbox, body")));
-      });
-      if (!items.length) items = parseBsxList($, $(".listupd").first());
-    } else {
-      items = parseBsxList($, $(".listupd").first());
+    // Untuk page 1, coba ambil episode terbaru yang rilis dari beranda
+    if (page === 1 && req.query.type !== "series") {
+      const homeData = await fetchDataJson("/", `${BASE_URL}/`);
+      const eps = homeData?.latestEpisodes?.data || [];
+      if (eps.length) {
+        const items = eps.map(fmtEpisodeCard).filter(Boolean);
+        return json(res, {
+          status: 200,
+          data: {
+            page: 1,
+            hasNextPage: true,
+            items,
+          },
+        });
+      }
     }
 
-    const hasNextPage =
-      $(".pagination .next, .hpage .r, .pagination a:contains('Next'), .next").length > 0 ||
-      // anichin: pagination numeric — cek ada link ke page+1
-      $(`.pagination a[href*="/page/${page + 1}/"]`).length > 0;
+    // Paginasi dari katalog lengkap anime
+    const all = await getAllSeries();
+    const startIndex = (page - 1) * perPage;
+    const rawItems = all.slice(startIndex, startIndex + perPage);
+    const items = rawItems.map(fmtSeries).filter(Boolean);
+    const hasNextPage = startIndex + perPage < all.length;
 
     return json(res, {
       status: 200,
-      data: { page, hasNextPage, items },
+      data: {
+        page,
+        hasNextPage,
+        items,
+      },
     });
   } catch (err) {
     return json(res, { status: err.status || 500, message: err.message }, err.status || 500);

@@ -1,87 +1,131 @@
 // ============================================================
-// GET /api/anichin/stream?id=<episode-path|url> — Streaming episode
-// Return: embed utama, multi-server (decoded base64), downloads, nav
+// GET /api/anichin/stream?id=<slug-episode-N> — Streaming Episode
+// Powered by Oploverz Anime Engine
 // ============================================================
-import { CORS_HEADERS, json, fetchHtml, decodeBase64, BASE_URL, slugFromUrl } from "../_anichin.js";
-import * as cheerio from "cheerio";
+import {
+  CORS_HEADERS,
+  json,
+  fetchDataJson,
+  fmtStreamUrls,
+  fmtDownloads,
+  BASE_URL,
+} from "../_anime.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).set(CORS_HEADERS).end();
-  if (req.method !== "GET") return json(res, { status: 405, message: "Method not allowed" }, 405);
+  if (req.method !== "GET")
+    return json(res, { status: 405, message: "Method not allowed" }, 405);
 
-  const id = (req.query.id || "").trim();
-  if (!id) return json(res, { status: 400, message: "URL/path episode diperlukan" }, 400);
+  const rawId = (req.query.id || "").trim();
+  let animeSlug = (req.query.anime || "").trim();
+  let epNum = (req.query.ep || "").trim();
+
+  // Parsing slug dan episode number dari id
+  if (rawId) {
+    const cleanId = rawId
+      .replace(/^https?:\/\/[^\/]+/i, "")
+      .replace(/^\/?(watch|series|donghua|anime)\//i, "")
+      .replace(/^\/+|\/+$/g, "");
+
+    const mEp = cleanId.match(/^(.*?)[-_]episode[-_](\d+)$/i);
+    if (mEp) {
+      animeSlug = animeSlug || mEp[1];
+      epNum = epNum || mEp[2];
+    } else {
+      const mSlash = cleanId.match(/^(.*?)\/(?:episode\/)?(\d+)$/i);
+      if (mSlash) {
+        animeSlug = animeSlug || mSlash[1];
+        epNum = epNum || mSlash[2];
+      } else if (!epNum && /^\d+$/.test(cleanId)) {
+        epNum = cleanId;
+      } else if (!animeSlug) {
+        animeSlug = cleanId;
+      }
+    }
+  }
+
+  if (!animeSlug) {
+    return json(res, { status: 400, message: "Anime slug diperlukan" }, 400);
+  }
+  if (!epNum) epNum = "1";
 
   try {
-    const cleanUrl = id.startsWith("http")
-      ? id
-      : `${BASE_URL}/${id.replace(/^\/+|\/+$/g, "")}/`;
+    const decoded = await fetchDataJson(
+      `/series/${animeSlug}/episode/${epNum}`,
+      `${BASE_URL}/series/${animeSlug}`
+    );
 
-    const html = await fetchHtml(cleanUrl);
-    const $ = cheerio.load(html);
+    if (!decoded || (!decoded.episode && !decoded.streamUrl)) {
+      return json(
+        res,
+        { status: 404, message: `Episode tidak ditemukan: ${animeSlug} ep ${epNum}` },
+        404
+      );
+    }
 
-    const title = $("h1.entry-title").text().trim();
-    if (!title) return json(res, { status: 404, message: "Episode tidak ditemukan" }, 404);
+    const ep = decoded.episode || {};
+    const streamUrls = fmtStreamUrls(ep.streamUrl || decoded.streamUrl || []);
+    const downloadUrls = fmtDownloads(ep.downloadUrl || decoded.downloadUrl || []);
 
-    // Embed utama (iframe pertama)
-    const defaultStream =
-      $(".player-embed iframe, .video-content iframe, .mobius iframe, iframe").first().attr("src") ||
-      null;
+    const servers = streamUrls.map((s) => ({
+      server: s.label || "HD",
+      embed_url: s.url,
+    }));
 
-    // Multi-server dari select.mirror (value = base64 iframe HTML)
-    const servers = [];
-    $("select.mirror option").each((_, el) => {
-      const name = $(el).text().trim();
-      const rawVal = $(el).attr("value");
-      if (!rawVal || !name || /^select/i.test(name)) return;
-      const decoded = decodeBase64(rawVal);
-      const matchSrc = decoded.match(/src=["']([^"']+)["']/i);
-      const iframeSrc = matchSrc ? matchSrc[1] : decoded.startsWith("http") ? decoded : null;
-      if (iframeSrc) servers.push({ server: name, embed_url: iframeSrc });
-    });
+    const defaultStream = servers[0]?.embed_url || null;
 
-    // Downloads per kualitas
+    // Grouping download links berdasarkan quality
     const downloads = {};
-    $(".soraurlx").each((_, el) => {
-      const quality = $(el).find("strong").first().text().trim() || "unknown";
-      const links = [];
-      $(el).find("a").each((__, linkEl) => {
-        const host = $(linkEl).text().trim();
-        const url = $(linkEl).attr("href");
-        if (url && host) links.push({ host, url });
+    downloadUrls.forEach((d) => {
+      const q = d.quality || "Default";
+      if (!downloads[q]) downloads[q] = [];
+      downloads[q].push({
+        host: d.host || "Direct Download",
+        url: d.url,
       });
-      if (links.length) downloads[quality] = links;
     });
 
-    // Navigasi episode
-    const nav = {
-      prev: $(".naveps .nvs a[rel='prev']").attr("href") || null,
-      all: $(".naveps .nvsc a, .naveps .all a").attr("href") || null,
-      next: $(".naveps .nvs a[rel='next']").attr("href") || null,
-    };
+    const seriesTitle = ep.series?.title || decoded.series?.title || animeSlug;
+    const currentNum = Number(ep.episodeNumber || epNum);
 
-    // Judul seri + nomor episode dari judul halaman
-    const epMatch = title.match(/Episode\s+(\d+)/i);
-    const seriesTitle = title.split(/\s+Episode\s+\d+/i)[0].trim();
+    // Navigasi episode dari daftar episode
+    const allList = decoded.allEpisodes?.data || decoded.allEpisodes || decoded.episodes?.data || decoded.episodes || [];
+    let prevEp = null;
+    let nextEp = null;
+
+    if (Array.isArray(allList) && allList.length) {
+      const nums = allList
+        .map((e) => Number(e.episodeNumber))
+        .filter((n) => !isNaN(n))
+        .sort((a, b) => a - b);
+      const currIdx = nums.indexOf(currentNum);
+      if (currIdx > 0) prevEp = nums[currIdx - 1];
+      if (currIdx >= 0 && currIdx < nums.length - 1) nextEp = nums[currIdx + 1];
+    } else {
+      if (currentNum > 1) prevEp = currentNum - 1;
+      nextEp = currentNum + 1;
+    }
+
+    const episodeIdentifier = `${animeSlug}-episode-${currentNum}`;
 
     return json(res, {
       status: 200,
       data: {
-        id: slugFromUrl(cleanUrl),
-        title,
+        id: episodeIdentifier,
+        title: `${seriesTitle} Episode ${currentNum}`,
         series_title: seriesTitle,
-        episode_number: epMatch ? Number(epMatch[1]) : null,
+        episode_number: currentNum,
         default_stream: defaultStream,
         servers,
         downloads,
         navigation: {
-          prev: nav.prev ? slugFromUrl(nav.prev) : null,
-          prevUrl: nav.prev,
-          all: nav.all,
-          next: nav.next ? slugFromUrl(nav.next) : null,
-          nextUrl: nav.next,
+          prev: prevEp ? `${animeSlug}-episode-${prevEp}` : null,
+          prevUrl: prevEp ? `/watch/${animeSlug}/${animeSlug}-episode-${prevEp}` : null,
+          all: `/donghua/${animeSlug}`,
+          next: nextEp ? `${animeSlug}-episode-${nextEp}` : null,
+          nextUrl: nextEp ? `/watch/${animeSlug}/${animeSlug}-episode-${nextEp}` : null,
         },
-        url: cleanUrl,
+        url: `/watch/${animeSlug}/${episodeIdentifier}`,
       },
     });
   } catch (err) {

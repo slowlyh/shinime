@@ -1,74 +1,67 @@
 // ============================================================
 // GET /api/anichin/home — Popular Today, Latest, Recommendation, Leaderboard
+// Powered by Oploverz Anime Engine
 // ============================================================
 import {
-  CORS_HEADERS, json, fetchHtml, parseBsxList, parseBsxCard, slugFromUrl, BASE_URL,
-} from "../_anichin.js";
-import * as cheerio from "cheerio";
+  CORS_HEADERS,
+  json,
+  fetchDataJson,
+  fmtSeries,
+  fmtEpisodeCard,
+  BASE_URL,
+} from "../_anime.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).set(CORS_HEADERS).end();
-  if (req.method !== "GET") return json(res, { status: 405, message: "Method not allowed" }, 405);
+  if (req.method !== "GET")
+    return json(res, { status: 405, message: "Method not allowed" }, 405);
 
   try {
-    const html = await fetchHtml(`${BASE_URL}/`);
-    const $ = cheerio.load(html);
+    const decoded = await fetchDataJson("/", `${BASE_URL}/`);
+    if (!decoded) {
+      throw new Error("Gagal mengambil data beranda anime");
+    }
 
-    // Popular Today — section dengan class hothome
-    const popularToday = parseBsxList($, $(".releases.hothome").parent());
+    const trendingRaw = decoded.trending?.data || [];
+    const recentlyRaw = decoded.recently?.data || [];
+    const latestEpisodesRaw = decoded.latestEpisodes?.data || [];
 
-    // Latest Release — heading berisi "Latest Release"
-    const latest = parseBsxList(
-      $,
-      $('.releases h3, .releases').filter((_, el) => $(el).text().trim() === "Latest Release").closest(".bixbox, .excstf, body").first()
-    );
+    const popularToday = trendingRaw.map(fmtSeries).filter(Boolean);
+    const recommendation = recentlyRaw.map(fmtSeries).filter(Boolean);
+    const latest = latestEpisodesRaw.map(fmtEpisodeCard).filter(Boolean);
 
-    // Recommendation — section dengan tab genre
-    const recommendation = [];
-    $('.releases').filter((_, el) => $(el).text().includes("Recommendation")).each((__, rel) => {
-      $(rel).parent().find(".bsx").each((_, el) => {
-        const item = parseBsxCard($, el);
-        if (item) recommendation.push(item);
-      });
-    });
-    // dedup by id
-    const seen = new Set();
-    const recDedup = recommendation.filter((r) => !seen.has(r.id) && seen.add(r.id));
+    // Leaderboards
+    const leaderboard = {
+      weekly: popularToday.slice(0, 10).map((item, idx) => ({ ...item, rank: String(idx + 1) })),
+      monthly: recommendation.slice(0, 10).map((item, idx) => ({ ...item, rank: String(idx + 1) })),
+      alltime: [...popularToday]
+        .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+        .map((item, idx) => ({ ...item, rank: String(idx + 1) })),
+    };
 
-    // Leaderboard — div.serieslist.wpop-<range>
-    const parseWpop = (range) => {
-      const items = [];
-      $(`.serieslist.wpop-${range} li, .wpop-${range} li`).each((_, el) => {
-        const rank = $(el).find(".ctr").text().trim();
-        const a = $(el).find(".leftseries h4 a, h4 a, .series").first();
-        const link = a.attr("href") || $(el).find("a").attr("href") || "";
-        const title = a.text().trim() || $(el).find("h4").text().trim();
-        const thumbnail = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || null;
-        const rating = $(el).find(".numscore").first().text().trim() || null;
-        const genres = [];
-        $(el).find(".leftseries span a").each((_, g) => genres.push($(g).text().trim()));
-        if (title && link) {
-          items.push({
-            id: slugFromUrl(link), rank, title, rating, genres,
-            poster: thumbnail, image_cover: thumbnail, url: link,
-          });
+    // Genres mapping
+    const genreMap = new Map();
+    [...trendingRaw, ...recentlyRaw].forEach((s) => {
+      (s.genres || []).forEach((g) => {
+        const name = typeof g === "string" ? g : g?.name;
+        const slug = typeof g === "string" ? g.toLowerCase().replace(/\s+/g, "-") : g?.slug || name?.toLowerCase();
+        if (name && slug && !genreMap.has(slug)) {
+          genreMap.set(slug, { id: slug, title: name });
         }
       });
-      return items;
-    };
+    });
 
-    const leaderboard = {
-      weekly: parseWpop("weekly"),
-      monthly: parseWpop("monthly"),
-      alltime: parseWpop("alltime"),
-    };
-
-    // Genres (dari sidebar home) — list kecil
-    const genres = [];
-    $("ul.genre li a, .genre li a").each((_, el) => {
-      const title = $(el).text().trim();
-      const href = $(el).attr("href") || "";
-      if (title && href) genres.push({ id: slugFromUrl(href), title });
+    // Tambah genre anime umum jika belum lengkap
+    const defaultGenres = [
+      "Action", "Adventure", "Comedy", "Drama", "Fantasy",
+      "Isekai", "Magic", "Mystery", "Romance", "Sci-Fi",
+      "Shounen", "Slice of Life", "Sports", "Supernatural"
+    ];
+    defaultGenres.forEach((name) => {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      if (!genreMap.has(slug)) {
+        genreMap.set(slug, { id: slug, title: name });
+      }
     });
 
     return json(res, {
@@ -76,9 +69,9 @@ export default async function handler(req, res) {
       data: {
         popularToday,
         latest: latest.length ? latest : popularToday.slice(0, 12),
-        recommendation: recDedup,
+        recommendation,
         leaderboard,
-        genres,
+        genres: Array.from(genreMap.values()),
       },
     });
   } catch (err) {
