@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Play, Tag, Tv } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Search, Menu, X, Play, Tv } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const navLinks = [
-  { name: 'Latest', href: '/latest', icon: Tv },
-  { name: 'Genres', href: '/genres', icon: Tag },
+  { name: 'Home', href: '/' },
+  { name: 'Latest Anime', href: '/latest', icon: Tv },
 ];
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,35 +25,40 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
-      <div className="container mx-auto px-4">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#09090b]/85 backdrop-blur-xl border-b border-white/[0.08]">
+      <div className="container max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link 
             to="/" 
-            className="flex items-center gap-2 group"
+            className="flex items-center gap-2.5 group"
           >
-            <div className="relative">
-              <Play className="w-8 h-8 text-accent fill-accent group-hover:scale-110 transition-transform" />
-              <div className="absolute inset-0 bg-accent/30 blur-lg group-hover:blur-xl transition-all" />
+            <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center group-hover:bg-accent/25 transition-colors">
+              <Play className="w-4 h-4 text-accent fill-accent" />
             </div>
-            <span className="text-2xl font-bold tracking-tight">
+            <span className="text-xl font-bold tracking-tight text-white">
               shin<span className="text-accent">ime</span>
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                to={link.href}
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group"
-              >
-                <link.icon className="w-4 h-4 group-hover:text-accent transition-colors" />
-                <span className="text-sm font-medium">{link.name}</span>
-              </Link>
-            ))}
+          <div className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => {
+              const isActive = location.pathname === link.href;
+              return (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-white/[0.08] text-white'
+                      : 'text-muted-foreground hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
           </div>
 
           {/* Search Bar */}
@@ -64,7 +70,7 @@ export function Navbar() {
                 placeholder="Search anime..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 pl-10 bg-muted/50 border-border/50 focus:border-accent focus:ring-accent/20"
+                className="w-64 pl-9 pr-3 py-1.5 h-9 bg-card border-white/[0.08] text-xs text-white placeholder:text-muted-foreground focus:border-accent focus:ring-1 focus:ring-accent"
               />
             </div>
           </form>
@@ -73,8 +79,9 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="md:hidden text-white hover:bg-white/[0.08] h-9 w-9"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </Button>
@@ -83,33 +90,30 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-16 left-0 right-0 bg-background/95 backdrop-blur-xl border-b border-border/50 slide-up">
-          <div className="container mx-auto px-4 py-4 space-y-4">
-            <form onSubmit={handleSearch}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search anime..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 bg-muted/50 border-border/50"
-                />
-              </div>
-            </form>
-            <div className="flex flex-col gap-2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                >
-                  <link.icon className="w-5 h-5" />
-                  <span className="font-medium">{link.name}</span>
-                </Link>
-              ))}
+        <div className="md:hidden bg-[#09090b]/95 backdrop-blur-2xl border-b border-white/[0.08] px-4 py-4 space-y-3">
+          <form onSubmit={handleSearch}>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search anime..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 bg-card border-white/[0.08] text-sm text-white placeholder:text-muted-foreground"
+              />
             </div>
+          </form>
+          <div className="flex flex-col gap-1 pt-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                to={link.href}
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-white hover:bg-white/[0.05] transition-colors"
+              >
+                {link.name}
+              </Link>
+            ))}
           </div>
         </div>
       )}

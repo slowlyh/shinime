@@ -2,7 +2,7 @@ import { Search, Film, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type EmptyStateType = 'search' | 'anime' | 'donghua' | 'error';
+type EmptyStateType = 'search' | 'anime' | 'error';
 
 interface EmptyStateProps {
   type?: EmptyStateType;
@@ -15,22 +15,17 @@ interface EmptyStateProps {
 const iconMap = {
   search: Search,
   anime: Film,
-  donghua: Film,
   error: AlertCircle,
 };
 
 const defaultContent = {
   search: {
     title: 'No results found',
-    description: 'Try adjusting your search or filter to find what you\'re looking for.',
+    description: "Try adjusting your search query to find what you're looking for.",
   },
   anime: {
     title: 'No anime found',
-    description: 'There are no anime in this category yet.',
-  },
-  donghua: {
-    title: 'No donghua found',
-    description: 'There are no donghua in this category yet.',
+    description: 'There are no anime in this section yet.',
   },
   error: {
     title: 'Something went wrong',
@@ -45,33 +40,31 @@ export function EmptyState({
   className,
   onRetry
 }: EmptyStateProps) {
-  const Icon = iconMap[type];
-  const content = defaultContent[type];
+  const Icon = iconMap[type] || Film;
+  const content = defaultContent[type] || defaultContent.anime;
 
   return (
     <div className={cn("flex flex-col items-center justify-center py-16 px-4 text-center", className)}>
       <div className={cn(
-        "w-16 h-16 rounded-full flex items-center justify-center mb-4",
-        type === 'error' ? "bg-destructive/10" : "bg-muted/50"
+        "w-14 h-14 rounded-2xl flex items-center justify-center mb-4 border border-white/[0.08]",
+        type === 'error' ? "bg-destructive/10 text-destructive" : "bg-card text-muted-foreground"
       )}>
-        <Icon className={cn(
-          "w-8 h-8",
-          type === 'error' ? "text-destructive" : "text-muted-foreground"
-        )} />
+        <Icon className="w-6 h-6" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">
+      <h3 className="text-base font-semibold mb-1.5 text-foreground">
         {title || content.title}
       </h3>
-      <p className="text-muted-foreground max-w-md mb-4">
+      <p className="text-muted-foreground text-xs sm:text-sm max-w-sm mb-4">
         {description || content.description}
       </p>
       {onRetry && (
         <Button
           onClick={onRetry}
           variant="outline"
-          className="gap-2"
+          size="sm"
+          className="gap-2 border-white/[0.1] bg-card hover:bg-muted text-xs"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className="w-3.5 h-3.5" />
           Try Again
         </Button>
       )}

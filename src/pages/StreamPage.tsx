@@ -43,8 +43,9 @@ export default function StreamPage() {
       setError(null);
       const data = await anichin.detail(decodeURIComponent(animeId));
       setDetail(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memuat anime';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -57,11 +58,12 @@ export default function StreamPage() {
       setStreamError(null);
       const data = await anichin.stream(decodeURIComponent(episodeId));
       setStream(data);
-      // pilih server pertama yang valid, atau default_stream
-      const first = data.servers?.find((s) => s.embed_url)?.embed_url || data.default_stream || '';
+      const first =
+        data.servers?.find((s) => s.embed_url)?.embed_url || data.default_stream || '';
       setActiveServer(first);
-    } catch (err: any) {
-      setStreamError(err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memuat video stream';
+      setStreamError(msg);
     } finally {
       setStreamLoading(false);
     }
@@ -76,17 +78,20 @@ export default function StreamPage() {
   }, [fetchStream]);
 
   // Episode list (ascending) dari detail
-  const episodes = [...(detail?.episodes || [])].sort((a, b) => (a.number || 0) - (b.number || 0));
-  const currentEpisodeIndex = episodes.findIndex((ep: Episode) => ep.id === decodeURIComponent(episodeId || ''));
+  const episodes = [...(detail?.episodes || [])].sort(
+    (a, b) => (a.number || 0) - (b.number || 0)
+  );
+  const currentEpisodeIndex = episodes.findIndex(
+    (ep: Episode) => ep.id === decodeURIComponent(episodeId || '')
+  );
   const currentEpisode = episodes[currentEpisodeIndex];
   const prevEpisode = episodes[currentEpisodeIndex - 1];
   const nextEpisode = episodes[currentEpisodeIndex + 1];
 
-  // Navigasi juga pakai navigation dari stream API (fallback bila detail tidak punya list)
   const navPrevId = prevEpisode?.id || stream?.navigation?.prev || null;
   const navNextId = nextEpisode?.id || stream?.navigation?.next || null;
 
-  // Keyboard navigation
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && cinemaMode) setCinemaMode(false);
@@ -103,16 +108,16 @@ export default function StreamPage() {
 
   const episodeNumber =
     stream?.episode_number || currentEpisode?.number || currentEpisodeIndex + 1;
-  const seriesTitle = stream?.series_title || detail?.title || 'Donghua';
+  const seriesTitle = stream?.series_title || detail?.title || 'Anime';
 
   if (loading) {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen pt-20 flex items-center justify-center bg-gradient-to-b from-background to-background/95">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-10 h-10 text-accent animate-spin" />
-            <p className="text-muted-foreground animate-pulse">Loading donghua...</p>
+        <main className="min-h-screen pt-20 flex items-center justify-center bg-[#09090b]">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 text-accent animate-spin" />
+            <p className="text-xs text-muted-foreground">Memuat anime...</p>
           </div>
         </main>
       </>
@@ -123,12 +128,12 @@ export default function StreamPage() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen pt-20 bg-gradient-to-b from-background to-background/95">
+        <main className="min-h-screen pt-20 bg-[#09090b]">
           <div className="container mx-auto px-4 py-12">
             <EmptyState type="error" description={error} onRetry={fetchDetail} />
             <div className="text-center mt-4">
-              <Button asChild variant="outline">
-                <Link to="/">Back to Home</Link>
+              <Button asChild variant="outline" className="border-white/[0.1] bg-card text-xs">
+                <Link to="/">Kembali ke Beranda</Link>
               </Button>
             </div>
           </div>
@@ -137,8 +142,8 @@ export default function StreamPage() {
     );
   }
 
-  const pageTitle = `${seriesTitle} - Episode ${episodeNumber} - shinime`;
-  const pageDescription = `Watch ${seriesTitle} Episode ${episodeNumber} donghua online for free on shinime.`;
+  const pageTitle = `${seriesTitle} Episode ${episodeNumber} - shinime`;
+  const pageDescription = `Nonton anime ${seriesTitle} Episode ${episodeNumber} sub Indo online gratis di shinime.`;
   const downloadQualities = stream?.downloads ? Object.keys(stream.downloads) : [];
 
   return (
@@ -148,55 +153,57 @@ export default function StreamPage() {
         <meta name="description" content={pageDescription} />
       </Helmet>
 
-      {/* Cinema Mode Overlay */}
+      {/* Cinema Mode Backdrop */}
       {cinemaMode && (
         <div
-          className="fixed inset-0 bg-black/90 z-40 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/95 z-40 transition-opacity"
           onClick={() => setCinemaMode(false)}
         />
       )}
 
       {!cinemaMode && <Navbar />}
 
-      <main className={cn(
-        "min-h-screen transition-all duration-300",
-        cinemaMode
-          ? "pt-0 bg-black"
-          : "pt-16 sm:pt-20 pb-12 bg-gradient-to-b from-background via-background to-muted/20"
-      )}>
-        <div className={cn(
-          "mx-auto px-4 transition-all duration-300",
-          cinemaMode ? "max-w-[1400px] py-4" : "max-w-5xl"
-        )}>
-          {/* Back Link */}
+      <main
+        className={cn(
+          'min-h-screen transition-all duration-200 bg-[#09090b] text-foreground',
+          cinemaMode ? 'pt-2' : 'pt-20 pb-16'
+        )}
+      >
+        <div
+          className={cn(
+            'mx-auto px-4 transition-all duration-200',
+            cinemaMode ? 'max-w-[1400px]' : 'max-w-5xl'
+          )}
+        >
+          {/* Back to anime */}
           {!cinemaMode && (
             <Link
-              to={`/donghua/${animeId}`}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 rounded-md px-1"
+              to={`/anime/${animeId}`}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white mb-4 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
-              Back to {seriesTitle}
+              Kembali ke {seriesTitle}
             </Link>
           )}
 
-          {/* Player Container */}
-          <div className="relative z-50 mb-6">
-            {/* Cinema Toggle */}
-            <div className={cn("absolute top-3 right-3 z-10 flex items-center gap-2", streamLoading && "hidden")}>
+          {/* Video Container */}
+          <div className="relative z-50 mb-5">
+            {/* Cinema Controls */}
+            <div className={cn('absolute top-3 right-3 z-10 flex items-center gap-2', streamLoading && 'hidden')}>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setCinemaMode(!cinemaMode)}
-                className="bg-background/80 backdrop-blur-sm hover:bg-background/90 gap-2 text-xs sm:text-sm"
+                className="bg-black/80 hover:bg-black/90 text-white border border-white/[0.1] gap-1.5 text-xs h-8"
               >
                 {cinemaMode ? (
                   <>
-                    <Sun className="w-4 h-4" />
-                    <span className="hidden sm:inline">Exit Cinema</span>
+                    <Sun className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Keluar Cinema</span>
                   </>
                 ) : (
                   <>
-                    <Moon className="w-4 h-4" />
+                    <Moon className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Cinema Mode</span>
                   </>
                 )}
@@ -206,7 +213,7 @@ export default function StreamPage() {
                   variant="secondary"
                   size="icon"
                   onClick={() => setCinemaMode(false)}
-                  className="bg-background/80 backdrop-blur-sm hover:bg-background/90 h-8 w-8"
+                  className="bg-black/80 hover:bg-black/90 text-white border border-white/[0.1] h-8 w-8"
                 >
                   <X className="w-4 h-4" />
                 </Button>
@@ -214,23 +221,23 @@ export default function StreamPage() {
             </div>
 
             {streamLoading ? (
-              <div className="aspect-video bg-card rounded-none sm:rounded-xl flex flex-col items-center justify-center">
-                <Loader2 className="w-12 h-12 text-accent animate-spin mb-3" />
-                <p className="text-muted-foreground text-sm">Loading video...</p>
+              <div className="aspect-video bg-card rounded-xl border border-white/[0.08] flex flex-col items-center justify-center">
+                <Loader2 className="w-10 h-10 text-accent animate-spin mb-2" />
+                <p className="text-xs text-muted-foreground">Menghubungkan server video...</p>
               </div>
             ) : streamError || !activeServer ? (
-              <div className="aspect-video bg-card rounded-none sm:rounded-xl flex flex-col items-center justify-center p-6">
-                <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Failed to load video</h3>
-                <p className="text-muted-foreground text-center mb-4 max-w-md text-sm">
-                  {streamError || 'Stream URL not found for this episode.'}
+              <div className="aspect-video bg-card rounded-xl border border-white/[0.08] flex flex-col items-center justify-center p-6 text-center">
+                <AlertCircle className="w-10 h-10 text-destructive mb-3" />
+                <h3 className="text-base font-semibold text-white mb-1">Gagal memuat video</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mb-4">
+                  {streamError || 'Server streaming belum tersedia untuk episode ini.'}
                 </p>
-                <Button onClick={fetchStream} variant="outline" className="gap-2">
-                  Try Again
+                <Button onClick={fetchStream} variant="outline" size="sm" className="border-white/[0.1] text-xs">
+                  Coba Lagi
                 </Button>
               </div>
             ) : (
-              <div className="aspect-video bg-black rounded-none sm:rounded-xl overflow-hidden shadow-2xl">
+              <div className="aspect-video bg-black rounded-xl overflow-hidden border border-white/[0.08] shadow-2xl">
                 <iframe
                   src={activeServer}
                   className="w-full h-full"
@@ -244,22 +251,22 @@ export default function StreamPage() {
 
           {/* Server Selector */}
           {!streamLoading && stream?.servers && stream.servers.length > 0 && (
-            <div className="mb-4 p-4 rounded-xl bg-card border border-border/50">
-              <div className="flex items-center gap-2 mb-3">
-                <Server className="w-4 h-4 text-accent" />
-                <h3 className="text-sm font-semibold">Video Servers</h3>
+            <div className="mb-4 p-4 rounded-xl bg-card border border-white/[0.06]">
+              <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-white">
+                <Server className="w-3.5 h-3.5 text-accent" />
+                <span>Pilih Server Stream</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {stream.servers.map((srv) => (
+                {stream.servers.map((srv, idx) => (
                   <button
-                    key={srv.server}
+                    key={`${srv.server}-${idx}`}
                     onClick={() => srv.embed_url && setActiveServer(srv.embed_url)}
                     disabled={!srv.embed_url}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all",
+                      'px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer border',
                       srv.embed_url === activeServer
-                        ? "bg-accent text-accent-foreground shadow-glow"
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                        ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                        : 'bg-muted/40 border-white/[0.06] text-muted-foreground hover:text-white hover:border-white/[0.15]'
                     )}
                   >
                     {srv.server}
@@ -271,33 +278,31 @@ export default function StreamPage() {
 
           {/* Downloads */}
           {!streamLoading && downloadQualities.length > 0 && (
-            <div className="mb-4 rounded-xl bg-card border border-border/50 overflow-hidden">
+            <div className="mb-4 rounded-xl bg-card border border-white/[0.06] overflow-hidden">
               <button
                 onClick={() => setShowDownloads(!showDownloads)}
-                className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+                className="w-full flex items-center justify-between p-3.5 hover:bg-muted/30 transition-colors cursor-pointer text-left"
               >
-                <div className="flex items-center gap-2">
-                  <Download className="w-4 h-4 text-accent" />
-                  <h3 className="text-sm font-semibold">
-                    Download Links ({downloadQualities.length} qualities)
-                  </h3>
+                <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                  <Download className="w-3.5 h-3.5 text-accent" />
+                  <span>Download Video ({downloadQualities.length} kualitas)</span>
                 </div>
-                <ChevronRight className={cn("w-4 h-4 transition-transform", showDownloads && "rotate-90")} />
+                <ChevronRight className={cn('w-4 h-4 text-muted-foreground transition-transform', showDownloads && 'rotate-90')} />
               </button>
               {showDownloads && (
-                <div className="px-4 pb-4 space-y-3 animate-fade-in">
+                <div className="px-4 pb-4 space-y-3 pt-1 border-t border-white/[0.06]">
                   {downloadQualities.map((quality) => (
                     <div key={quality} className="flex flex-wrap items-center gap-2">
-                      <span className="px-2 py-1 rounded-md bg-accent/10 text-accent text-xs font-bold min-w-[52px] text-center">
+                      <span className="px-2 py-0.5 rounded bg-accent/15 text-accent text-[11px] font-bold min-w-[50px] text-center border border-accent/20">
                         {quality}
                       </span>
-                      {stream?.downloads?.[quality].map((link) => (
+                      {stream?.downloads?.[quality].map((link, lIdx) => (
                         <a
-                          key={link.url}
+                          key={`${link.url}-${lIdx}`}
                           href={link.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted/40 border border-white/[0.06] text-[11px] font-medium text-muted-foreground hover:text-white hover:border-white/[0.15] transition-colors"
                         >
                           <ExternalLink className="w-3 h-3" />
                           {link.host}
@@ -311,92 +316,84 @@ export default function StreamPage() {
           )}
 
           {/* Episode Info & Navigation */}
-          <div className="flex flex-col gap-4 p-4 sm:p-5 rounded-xl bg-card border border-border/50">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-4 sm:p-5 rounded-xl bg-card border border-white/[0.06] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl font-semibold truncate">{seriesTitle}</h1>
-                <p className="text-muted-foreground text-sm sm:text-base">
+                <h1 className="text-base sm:text-lg font-bold text-white truncate">{seriesTitle}</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Episode {episodeNumber}
-                  {currentEpisode?.title && (
-                    <span className="hidden sm:inline"> — {currentEpisode.title}</span>
-                  )}
+                  {currentEpisode?.title && <span className="ml-1.5">• {currentEpisode.title}</span>}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-3">
+              {/* Prev / Next Buttons */}
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   disabled={!navPrevId}
-                  onClick={() => navPrevId && navigate(`/watch/${encodeURIComponent(animeId || '')}/${encodeURIComponent(navPrevId)}`)}
-                  className="flex-1 sm:flex-none h-11 sm:h-10 gap-1 sm:gap-2"
+                  onClick={() =>
+                    navPrevId &&
+                    navigate(`/watch/${encodeURIComponent(animeId || '')}/${encodeURIComponent(navPrevId)}`)
+                  }
+                  className="gap-1 border-white/[0.1] bg-card hover:bg-muted text-xs h-8"
                 >
-                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <ChevronLeft className="w-3.5 h-3.5" />
                   <span>Prev</span>
                 </Button>
 
                 <Button
-                  variant={showEpisodes ? "secondary" : "outline"}
+                  variant="outline"
+                  size="sm"
                   onClick={() => setShowEpisodes(!showEpisodes)}
-                  className="flex-1 sm:flex-none h-11 sm:h-10 gap-1 sm:gap-2"
+                  className="gap-1 border-white/[0.1] bg-card hover:bg-muted text-xs h-8"
                 >
-                  <List className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="sm:inline">Episodes</span>
+                  <List className="w-3.5 h-3.5" />
+                  <span>Episode</span>
                 </Button>
 
                 <Button
                   variant="outline"
+                  size="sm"
                   disabled={!navNextId}
-                  onClick={() => navNextId && navigate(`/watch/${encodeURIComponent(animeId || '')}/${encodeURIComponent(navNextId)}`)}
-                  className="flex-1 sm:flex-none h-11 sm:h-10 gap-1 sm:gap-2"
+                  onClick={() =>
+                    navNextId &&
+                    navigate(`/watch/${encodeURIComponent(animeId || '')}/${encodeURIComponent(navNextId)}`)
+                  }
+                  className="gap-1 border-white/[0.1] bg-card hover:bg-muted text-xs h-8"
                 >
                   <span>Next</span>
-                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
 
-            {/* Bila detail tidak punya episode list (mis. direct link), pakai nav dari API */}
-            {episodes.length === 0 && (navPrevId || navNextId) && (
-              <p className="text-xs text-muted-foreground">
-                Episode list tersedia di halaman donghua.
-                <Link to={`/donghua/${animeId}`} className="text-accent hover:underline ml-1">
-                  Lihat semua episode
-                </Link>
-              </p>
-            )}
-
-            {!cinemaMode && (
-              <p className="text-xs text-muted-foreground hidden lg:block">
-                Tip: Use ← → arrow keys to navigate episodes, Esc to exit cinema mode
-              </p>
+            {/* Episode Grid Dropdown */}
+            {showEpisodes && (
+              <div className="pt-3 border-t border-white/[0.06]">
+                <h4 className="text-xs font-semibold text-white mb-2.5">Pilih Episode</h4>
+                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-12 gap-1.5 max-h-56 overflow-y-auto pr-1">
+                  {episodes.map((ep: Episode) => (
+                    <button
+                      key={ep.id}
+                      onClick={() => {
+                        setShowEpisodes(false);
+                        navigate(`/watch/${encodeURIComponent(animeId || '')}/${encodeURIComponent(ep.id)}`);
+                      }}
+                      className={cn(
+                        'py-1.5 text-xs font-semibold rounded transition-colors border',
+                        ep.id === decodeURIComponent(episodeId || '')
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-muted/40 border-white/[0.06] text-muted-foreground hover:text-white hover:border-white/[0.15]'
+                      )}
+                    >
+                      {ep.number}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-
-          {/* Episode List */}
-          {showEpisodes && episodes.length > 0 && (
-            <div className="mt-4 p-4 sm:p-5 rounded-xl bg-card border border-border/50 animate-fade-in">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">All Episodes</h2>
-                <span className="text-sm text-muted-foreground">{episodes.length} episodes</span>
-              </div>
-              <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                {episodes.map((episode: Episode, index: number) => (
-                  <Link
-                    key={episode.id}
-                    to={`/watch/${encodeURIComponent(animeId || '')}/${encodeURIComponent(episode.id)}`}
-                    className={cn(
-                      "flex items-center justify-center p-2.5 sm:p-2 rounded-lg text-sm font-medium transition-all duration-200",
-                      episode.id === decodeURIComponent(episodeId || '')
-                        ? "bg-accent text-accent-foreground scale-105 shadow-md"
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105"
-                    )}
-                  >
-                    {episode.number || index + 1}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </>

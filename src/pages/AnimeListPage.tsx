@@ -1,39 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Tv, Filter } from 'lucide-react';
+import { Tv, Loader2 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { AnimeCard } from '@/components/AnimeCard';
 import { LoadingGrid } from '@/components/LoadingGrid';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { anichin, type AnimeItem, type Genre } from '@/services/anichin';
-import { cn } from '@/lib/utils';
+import { anichin, type AnimeItem } from '@/services/anichin';
 
-// Anichin fokus donghua — kategori "type" lama (series/movie/ova)
-// disederhanakan: semua route /anime/list/* dan /latest menampilkan
-// daftar donghua dengan genre filter dari source.
 export default function AnimeListPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const genre = searchParams.get('genre') || '';
-
   const [items, setItems] = useState<AnimeItem[]>([]);
-  const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [showGenreFilter, setShowGenreFilter] = useState(false);
-
-  const fetchGenres = useCallback(async () => {
-    try {
-      const data = await anichin.genreList();
-      setGenres(data || []);
-    } catch {
-      // genre opsional — abaikan
-    }
-  }, []);
 
   const fetchList = useCallback(async (pageNum: number, isNew = false) => {
     try {
@@ -45,22 +26,19 @@ export default function AnimeListPage() {
       const list = data.items || [];
 
       if (isNew) {
-        setItems(genre ? list : list);
+        setItems(list);
       } else {
         setItems((prev) => [...prev, ...list]);
       }
       setHasMore(Boolean(data.hasNextPage));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memuat anime';
+      setError(msg);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [genre]);
-
-  useEffect(() => {
-    fetchGenres();
-  }, [fetchGenres]);
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -74,127 +52,91 @@ export default function AnimeListPage() {
     fetchList(nextPage);
   };
 
-  const handleGenreChange = (genreSlug: string) => {
-    if (genreSlug) setSearchParams({ genre: genreSlug });
-    else setSearchParams({});
-    setShowGenreFilter(false);
-  };
-
-  const selectedGenre = genres.find(
-    (g) => g.title.toLowerCase().replace(/\s+/g, '-') === genre
-  );
-
-  // Filter client-side by genre label (anichin card tidak membawa genre; untuk
-  // filter presisi gunakan search). Kartu latest tetap ditampilkan.
-  const visibleItems = selectedGenre
-    ? items.filter((a: AnimeItem) =>
-        (a as any).genres?.some((g: string) => g.toLowerCase().replace(/\s+/g, '-') === genre)
-      ) || items
-    : items;
-
   return (
     <>
       <Helmet>
-        <title>{selectedGenre ? `${selectedGenre.title} Donghua` : 'Latest Donghua'} - shinime</title>
-        <meta name="description" content={`Browse the latest donghua releases${selectedGenre ? ` in ${selectedGenre.title}` : ''} on shinime. Watch donghua online for free.`} />
+        <title>Latest Anime - shinime</title>
+        <meta
+          name="description"
+          content="Jelajahi rilisan anime terbaru dan tonton streaming gratis di shinime. Selalu update setiap hari."
+        />
       </Helmet>
 
       <Navbar />
 
-      <main className="min-h-screen pt-20 pb-12">
-        <div className="container mx-auto px-4">
+      <main className="min-h-screen pt-20 pb-16 bg-[#09090b] text-foreground">
+        <div className="container max-w-7xl mx-auto px-4">
           {/* Header */}
-          <div className="py-8 border-b border-border/50 mb-8">
+          <div className="py-8 border-b border-white/[0.08] mb-8">
             <div className="flex items-center gap-3 mb-2">
-              <Tv className="w-6 h-6 text-accent" />
-              <h1 className="text-2xl md:text-3xl font-bold">
-                {selectedGenre ? `${selectedGenre.title} Donghua` : 'Latest Donghua'}
+              <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center">
+                <Tv className="w-4 h-4 text-accent" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+                Rilis Anime Terbaru
               </h1>
             </div>
-            <p className="text-muted-foreground">
-              {selectedGenre
-                ? `Donghua in the ${selectedGenre.title} genre`
-                : 'Latest donghua releases updated regularly'}
+            <p className="text-sm text-muted-foreground">
+              Daftar episode anime yang baru diperbarui secara real-time.
             </p>
           </div>
 
-          {/* Filters */}
-          <div className="mb-8">
-            <div className="flex flex-wrap items-center gap-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowGenreFilter(!showGenreFilter)}
-                className={cn("gap-2", selectedGenre && "border-accent text-accent")}
-              >
-                <Filter className="w-4 h-4" />
-                {selectedGenre ? selectedGenre.title : 'Filter by Genre'}
-              </Button>
+          {/* Error State */}
+          {error && (
+            <EmptyState
+              type="error"
+              description={error}
+              onRetry={() => fetchList(1, true)}
+            />
+          )}
 
-              {selectedGenre && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleGenreChange('')}
-                  className="text-muted-foreground"
-                >
-                  Clear filter
-                </Button>
-              )}
-            </div>
+          {/* Loading */}
+          {loading && <LoadingGrid count={12} />}
 
-            {showGenreFilter && genres.length > 0 && (
-              <div className="mt-4 p-4 bg-card rounded-xl border border-border/50 scale-in">
-                <div className="flex flex-wrap gap-2">
-                  {genres.map((g) => {
-                    const slug = g.title.toLowerCase().replace(/\s+/g, '-');
-                    return (
-                      <button
-                        key={g.id + g.title}
-                        onClick={() => handleGenreChange(slug)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-sm transition-colors",
-                          genre === slug
-                            ? "bg-accent text-accent-foreground"
-                            : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        )}
-                      >
-                        {g.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Empty State */}
+          {!loading && !error && items.length === 0 && (
+            <EmptyState
+              type="anime"
+              title="Belum ada anime"
+              description="Daftar anime belum tersedia saat ini."
+            />
+          )}
 
-          {/* Grid */}
-          {loading ? (
-            <LoadingGrid count={12} />
-          ) : error ? (
-            <EmptyState type="error" description={error} onRetry={() => fetchList(1, true)} />
-          ) : visibleItems.length > 0 ? (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {visibleItems.map((anime: AnimeItem, index: number) => (
-                  <AnimeCard key={`${anime.id}-${index}`} anime={anime} index={index} showEpisode />
+          {/* Anime Grid */}
+          {!loading && !error && items.length > 0 && (
+            <div className="space-y-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                {items.map((anime: AnimeItem, index: number) => (
+                  <AnimeCard
+                    key={`${anime.id || anime.slug}-${index}`}
+                    anime={anime}
+                    index={index}
+                    showEpisode
+                  />
                 ))}
               </div>
 
+              {/* Load More Button */}
               {hasMore && (
-                <div className="flex justify-center mt-8">
+                <div className="text-center pt-4">
                   <Button
                     onClick={loadMore}
                     disabled={loadingMore}
                     variant="outline"
-                    className="min-w-[200px]"
+                    className="border-white/[0.12] bg-card hover:bg-muted text-xs font-semibold px-6 py-2"
                   >
-                    {loadingMore ? 'Loading...' : 'Load More'}
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Memuat...
+                      </>
+                    ) : (
+                      'Muat Lebih Banyak'
+                    )}
                   </Button>
                 </div>
               )}
-            </>
-          ) : (
-            <EmptyState type="donghua" />
+            </div>
           )}
         </div>
       </main>

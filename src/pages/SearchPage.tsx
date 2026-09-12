@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Search as SearchIcon, Sparkles } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { AnimeCard } from '@/components/AnimeCard';
 import { LoadingGrid } from '@/components/LoadingGrid';
@@ -9,56 +9,60 @@ import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { anichin, type AnimeItem } from '@/services/anichin';
 
-const SUGGESTIONS = [
-  'Battle Through The Heavens',
-  'Perfect World',
-  'Soul Land',
-  'Throne of Seal',
-  'Renegade Immortal',
-  'Martial Universe',
-];
-
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
 
   const [results, setResults] = useState<AnimeItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [totalResults, setTotalResults] = useState<number | null>(null);
 
   const fetchResults = useCallback(async (pageNum: number, isNewSearch = false) => {
-    if (!query) return;
+    if (!query.trim()) {
+      setResults([]);
+      setTotalResults(null);
+      return;
+    }
 
     try {
-      setLoading(true);
+      if (isNewSearch) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
+
       const data = await anichin.searchPaged(query, pageNum);
+      const items = data.items || [];
 
       if (isNewSearch) {
-        setResults(data.items || []);
+        setResults(items);
       } else {
-        setResults((prev) => [...prev, ...(data.items || [])]);
+        setResults((prev) => [...prev, ...items]);
       }
+
       setHasMore(Boolean(data.hasNextPage));
-    } catch (err: any) {
-      setError(err.message);
+      if (isNewSearch && items.length > 0) {
+        setTotalResults(items.length);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Pencarian gagal';
+      setError(msg);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [query]);
 
   useEffect(() => {
-    if (query) {
-      setPage(1);
-      setResults([]);
-      fetchResults(1, true);
-    } else {
-      setResults([]);
-      setHasMore(false);
-    }
-  }, [query, fetchResults]);
+    setPage(1);
+    setResults([]);
+    fetchResults(1, true);
+  }, [fetchResults]);
 
   const loadMore = () => {
     const nextPage = page + 1;
@@ -69,88 +73,104 @@ export default function SearchPage() {
   return (
     <>
       <Helmet>
-        <title>{query ? `Search: ${query}` : 'Search'} - shinime</title>
-        <meta name="description" content={`Search results for "${query}" on shinime. Find your favorite donghua series.`} />
+        <title>{query ? `Hasil pencarian: "${query}" - shinime` : 'Search Anime - shinime'}</title>
+        <meta
+          name="description"
+          content={`Hasil pencarian anime untuk "${query}" di shinime. Tonton anime sub Indo online gratis.`}
+        />
       </Helmet>
 
       <Navbar />
 
-      <main className="min-h-screen pt-20 pb-12">
-        <div className="container mx-auto px-4">
+      <main className="min-h-screen pt-20 pb-16 bg-[#09090b] text-foreground">
+        <div className="container max-w-7xl mx-auto px-4">
           {/* Header */}
-          <div className="py-8 border-b border-border/50 mb-8">
+          <div className="py-8 border-b border-white/[0.08] mb-8">
             <div className="flex items-center gap-3 mb-2">
-              <SearchIcon className="w-6 h-6 text-accent" />
-              <h1 className="text-2xl md:text-3xl font-bold">Search Results</h1>
+              <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center">
+                <Search className="w-4 h-4 text-accent" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+                {query ? `Pencarian: "${query}"` : 'Cari Anime'}
+              </h1>
             </div>
-            {query && (
-              <p className="text-muted-foreground">
-                Showing results for "<span className="text-foreground font-medium">{query}</span>"
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground">
+              {query
+                ? totalResults !== null
+                  ? `Ditemukan hasil yang cocok untuk kata kunci "${query}"`
+                  : 'Mencari...'
+                : 'Ketik judul anime yang ingin kamu cari.'}
+            </p>
           </div>
 
-          {/* Results */}
-          {!query ? (
-            <div className="py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-8 h-8 text-accent" />
+          {/* No Query State */}
+          {!query && (
+            <div className="text-center py-20">
+              <div className="w-14 h-14 rounded-2xl bg-card border border-white/[0.08] flex items-center justify-center mx-auto mb-4 text-muted-foreground">
+                <Search className="w-6 h-6" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">Start searching</h2>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Enter a search term to find your favorite donghua series and more.
+              <h3 className="text-base font-semibold mb-1 text-white">Ketik Kata Kunci</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
+                Masukkan judul anime yang ingin ditonton pada kotak pencarian di atas.
               </p>
-
-              <div className="max-w-lg mx-auto">
-                <p className="text-sm text-muted-foreground mb-3">Popular searches:</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {SUGGESTIONS.map((suggestion) => (
-                    <Link
-                      key={suggestion}
-                      to={`/search?q=${encodeURIComponent(suggestion)}`}
-                      className="px-4 py-2 rounded-full bg-muted/50 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      {suggestion}
-                    </Link>
-                  ))}
-                </div>
-              </div>
             </div>
-          ) : error ? (
-            <EmptyState type="error" description={error} onRetry={() => fetchResults(page, true)} />
-          ) : loading && results.length === 0 ? (
-            <LoadingGrid count={12} />
-          ) : results.length > 0 ? (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4 md:gap-6">
-                {results.map((item: AnimeItem, index: number) => (
-                  <AnimeCard key={item.id + '-' + index} anime={item} index={index} />
+          )}
+
+          {/* Error State */}
+          {error && query && (
+            <EmptyState
+              type="error"
+              description={error}
+              onRetry={() => fetchResults(1, true)}
+            />
+          )}
+
+          {/* Loading */}
+          {loading && <LoadingGrid count={12} />}
+
+          {/* No Results */}
+          {!loading && !error && query && results.length === 0 && (
+            <EmptyState
+              type="search"
+              title="Anime tidak ditemukan"
+              description={`Tidak ditemukan anime yang cocok dengan "${query}". Coba kata kunci lain.`}
+            />
+          )}
+
+          {/* Results Grid */}
+          {!loading && !error && results.length > 0 && (
+            <div className="space-y-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                {results.map((anime: AnimeItem, index: number) => (
+                  <AnimeCard
+                    key={`${anime.id || anime.slug}-${index}`}
+                    anime={anime}
+                    index={index}
+                  />
                 ))}
               </div>
 
+              {/* Load More Button */}
               {hasMore && (
-                <div className="flex justify-center mt-10">
+                <div className="text-center pt-4">
                   <Button
                     onClick={loadMore}
-                    disabled={loading}
+                    disabled={loadingMore}
                     variant="outline"
-                    className="px-8 gap-2"
+                    className="border-white/[0.12] bg-card hover:bg-muted text-xs font-semibold px-6 py-2"
                   >
-                    {loading ? 'Loading...' : 'Load More'}
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Memuat...
+                      </>
+                    ) : (
+                      'Muat Lebih Banyak'
+                    )}
                   </Button>
                 </div>
               )}
-              {!hasMore && (
-                <p className="text-center text-muted-foreground text-sm mt-10">
-                  End of results
-                </p>
-              )}
-            </>
-          ) : (
-            <EmptyState
-              type="search"
-              description={`No donghua found for "${query}". Try a different keyword.`}
-            />
+            </div>
           )}
         </div>
       </main>

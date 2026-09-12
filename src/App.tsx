@@ -7,7 +7,6 @@ import { HelmetProvider } from "react-helmet-async";
 import HomePage from "./pages/HomePage";
 import SearchPage from "./pages/SearchPage";
 import AnimeListPage from "./pages/AnimeListPage";
-import GenreListPage from "./pages/GenreListPage";
 import AnimeDetailPage from "./pages/AnimeDetailPage";
 import StreamPage from "./pages/StreamPage";
 import NotFound from "./pages/NotFound";
@@ -24,13 +23,14 @@ const App = () => (
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/search" element={<SearchPage />} />
-            <Route path="/genres" element={<GenreListPage />} />
-            <Route path="/donghua/:id" element={<AnimeDetailPage />} />
             <Route path="/anime/:id" element={<AnimeDetailPage />} />
-            <Route path="/anime/list/:type" element={<AnimeListPage />} />
+            <Route path="/donghua/:id" element={<AnimeDetailPage />} />
             <Route path="/latest" element={<AnimeListPage />} />
+            <Route path="/anime/list/:type" element={<AnimeListPage />} />
             <Route path="/watch/:animeId/:episodeId" element={<StreamPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            {/* Redirect genre page to home/latest */}
+            <Route path="/genres" element={<Navigate to="/latest" replace />} />
+            {/* 404 Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>

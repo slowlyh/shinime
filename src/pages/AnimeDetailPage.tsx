@@ -23,8 +23,9 @@ export default function AnimeDetailPage() {
       setError(null);
       const data = await anichin.detail(id);
       setAnime(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memuat anime';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -38,7 +39,7 @@ export default function AnimeDetailPage() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen pt-20 flex items-center justify-center">
+        <main className="min-h-screen pt-20 flex items-center justify-center bg-[#09090b]">
           <Loader2 className="w-8 h-8 text-accent animate-spin" />
         </main>
       </>
@@ -49,16 +50,17 @@ export default function AnimeDetailPage() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen pt-20">
+        <main className="min-h-screen pt-20 bg-[#09090b]">
           <div className="container mx-auto px-4 py-12">
             <EmptyState
               type="error"
-              description={error || 'Donghua not found'}
+              title="Anime tidak ditemukan"
+              description={error || 'Anime yang kamu cari tidak tersedia.'}
               onRetry={fetchDetail}
             />
             <div className="text-center mt-4">
-              <Button asChild variant="outline">
-                <Link to="/">Back to Home</Link>
+              <Button asChild variant="outline" className="border-white/[0.1] bg-card text-xs">
+                <Link to="/">Kembali ke Beranda</Link>
               </Button>
             </div>
           </div>
@@ -67,9 +69,9 @@ export default function AnimeDetailPage() {
     );
   }
 
-  const imageUrl = anime.image_cover || anime.imageCover || anime.poster || anime.thumbnail || '/placeholder.svg';
+  const imageUrl =
+    anime.image_cover || anime.imageCover || anime.poster || anime.thumbnail || '/placeholder.svg';
 
-  // Episodes dari source baru sudah ascending; tampilkan terbaru di atas untuk list, ascending untuk grid
   const episodes = [...(anime.episodes || [])];
   const latestEpisodes = [...episodes].reverse().slice(0, 8);
 
@@ -83,39 +85,42 @@ export default function AnimeDetailPage() {
   const season = meta.season;
   const duration = meta.duration;
   const network = meta.network;
-  const type = anime.type || meta.type || 'Donghua';
+  const type = anime.type || meta.type || 'Anime';
 
   return (
     <>
       <Helmet>
         <title>{anime.title} - shinime</title>
-        <meta name="description" content={description || `Watch ${anime.title} donghua online for free on shinime.`} />
+        <meta
+          name="description"
+          content={description || `Nonton streaming anime ${anime.title} sub Indo online gratis di shinime.`}
+        />
       </Helmet>
 
       <Navbar />
 
-      <main className="min-h-screen pt-20">
+      <main className="min-h-screen pt-20 bg-[#09090b] text-foreground pb-16">
         {/* Hero Banner */}
-        <div className="relative min-h-[60vh] md:min-h-[50vh] overflow-hidden">
+        <div className="relative min-h-[50vh] overflow-hidden border-b border-white/[0.06]">
           <div className="absolute inset-0">
             <img
               src={imageUrl}
               alt={anime.title}
               loading="lazy"
-              className="w-full h-full object-cover blur-xl scale-110 opacity-30"
+              className="w-full h-full object-cover blur-2xl scale-110 opacity-20"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = '/placeholder.svg';
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/50" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-transparent" />
           </div>
 
           <div className="container max-w-7xl mx-auto px-4 h-full relative z-10">
-            <div className="h-full flex items-end pb-8 pt-8 md:pt-0">
-              <div className="flex flex-col md:flex-row gap-6 md:gap-8 fade-in w-full">
+            <div className="h-full flex items-end pb-8 pt-6">
+              <div className="flex flex-col md:flex-row gap-6 md:gap-8 w-full">
                 {/* Poster */}
-                <div className="w-40 sm:w-48 md:w-56 flex-shrink-0 mx-auto md:mx-0 mt-4 md:mt-0">
-                  <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-card border border-border/50 bg-muted">
+                <div className="w-36 sm:w-44 md:w-52 shrink-0 mx-auto md:mx-0">
+                  <div className="aspect-[2/3] rounded-xl overflow-hidden border border-white/[0.1] bg-card shadow-2xl">
                     <img
                       src={imageUrl}
                       alt={anime.title}
@@ -129,87 +134,107 @@ export default function AnimeDetailPage() {
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 pb-4">
+                <div className="flex-1 pb-2">
                   <Link
                     to="/"
-                    className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-white mb-3 transition-colors"
                   >
-                    <ChevronLeft className="w-4 h-4" />
-                    Back
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Beranda
                   </Link>
 
-                  <h1 className="text-2xl md:text-4xl font-bold mb-2">
+                  <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-white mb-2">
                     {anime.title}
                   </h1>
 
                   {/* Alternative Title */}
                   {anime.other_title && (
-                    <p className="text-sm text-muted-foreground mb-3 italic">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-3 italic">
                       {anime.other_title}
                     </p>
                   )}
 
-                  {/* Meta Info */}
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
+                  {/* Meta Info Badges */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-4">
                     {anime.rating && (
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 border border-white/[0.08] text-white">
+                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                         <span>{anime.rating}</span>
                       </div>
                     )}
                     {year && (
                       <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
+                        <Calendar className="w-3.5 h-3.5" />
                         <span>{year}</span>
                       </div>
                     )}
                     {status && (
                       <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
+                        <Clock className="w-3.5 h-3.5" />
                         <span>{status}</span>
                       </div>
                     )}
                     {type && (
                       <div className="flex items-center gap-1">
-                        <Tag className="w-4 h-4" />
+                        <Tag className="w-3.5 h-3.5" />
                         <span className="capitalize">{type}</span>
                       </div>
                     )}
                     {totalEpisodes > 0 && (
                       <div className="flex items-center gap-1">
-                        <Layers className="w-4 h-4" />
-                        <span>{totalEpisodes} Episodes</span>
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>{totalEpisodes} Episode</span>
                       </div>
                     )}
                   </div>
 
                   {/* Genres */}
                   {genres.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
+                    <div className="flex flex-wrap gap-1.5 mb-4">
                       {genres.map((genre) => (
-                        <GenreBadge key={genre} genre={genre} variant="filled" />
+                        <GenreBadge key={genre} genre={genre} variant="outline" />
                       ))}
                     </div>
                   )}
 
                   {/* Extra metadata */}
-                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground mb-5">
-                    {studio && <span>Studio: <span className="text-foreground">{studio}</span></span>}
-                    {network && <span>Network: <span className="text-foreground">{network}</span></span>}
-                    {season && <span>Season: <span className="text-foreground">{season}</span></span>}
-                    {duration && <span>Duration: <span className="text-foreground">{duration}</span></span>}
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground mb-5">
+                    {studio && (
+                      <span>
+                        Studio: <span className="text-white font-medium">{studio}</span>
+                      </span>
+                    )}
+                    {network && (
+                      <span>
+                        Network: <span className="text-white font-medium">{network}</span>
+                      </span>
+                    )}
+                    {season && (
+                      <span>
+                        Musim: <span className="text-white font-medium">{season}</span>
+                      </span>
+                    )}
+                    {duration && (
+                      <span>
+                        Durasi: <span className="text-white font-medium">{duration}</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Watch Button */}
                   {episodes.length > 0 && (
                     <Button
                       asChild
-                      size="lg"
-                      className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-glow"
+                      size="default"
+                      className="bg-accent hover:bg-accent/90 text-white font-semibold text-xs sm:text-sm px-6 shadow-lg shadow-accent/20"
                     >
-                      <Link to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(episodes[episodes.length - 1].id)}`}>
-                        <Play className="w-5 h-5 mr-2 fill-current" />
-                        Watch Latest Episode
+                      <Link
+                        to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(
+                          episodes[episodes.length - 1].id
+                        )}`}
+                      >
+                        <Play className="w-4 h-4 mr-2 fill-white" />
+                        Tonton Episode Terbaru
                       </Link>
                     </Button>
                   )}
@@ -220,51 +245,51 @@ export default function AnimeDetailPage() {
         </div>
 
         {/* Content Section */}
-        <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="container max-w-7xl mx-auto px-4 py-10 space-y-10">
           {/* Synopsis */}
           {description && (
-            <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3">Synopsis</h2>
-              <p className="text-muted-foreground leading-relaxed max-w-4xl">
+            <section className="border-b border-white/[0.06] pb-8">
+              <h2 className="text-base font-bold text-white mb-3">Sinopsis</h2>
+              <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed max-w-4xl">
                 {description}
               </p>
             </section>
           )}
 
-          {/* Latest Episodes */}
+          {/* Latest Episodes Quick Bar */}
           {latestEpisodes.length > 0 && (
-            <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-4">Latest Episodes</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <section>
+              <h2 className="text-base font-bold text-white mb-4">Episode Terakhir Dirilis</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                 {latestEpisodes.map((ep: Episode) => (
                   <Link
                     key={ep.id}
                     to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(ep.id)}`}
-                    className="group flex items-center gap-3 p-3 rounded-lg bg-card border border-border/50 hover:border-accent hover:bg-accent/5 transition-all"
+                    className="group flex items-center gap-3 p-2.5 rounded-lg bg-card border border-white/[0.06] hover:border-accent/40 hover:bg-muted/40 transition-all"
                   >
-                    <div className="w-10 h-10 shrink-0 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-semibold text-sm">
+                    <div className="w-9 h-9 shrink-0 rounded bg-accent/15 text-accent flex items-center justify-center font-bold text-xs">
                       {ep.number}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate group-hover:text-accent transition-colors">
+                      <p className="text-xs font-semibold text-white truncate group-hover:text-accent transition-colors">
                         {ep.title || `Episode ${ep.number}`}
                       </p>
                       {ep.date && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{ep.date}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{ep.date}</p>
                       )}
                     </div>
-                    <Play className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
+                    <Play className="w-3.5 h-3.5 text-muted-foreground group-hover:text-accent transition-colors" />
                   </Link>
                 ))}
               </div>
             </section>
           )}
 
-          {/* All Episodes */}
+          {/* All Episodes Grid */}
           {episodes.length > 0 && (
             <section>
-              <h2 className="text-lg font-semibold mb-4">
-                Episodes ({episodes.length})
+              <h2 className="text-base font-bold text-white mb-4">
+                Daftar Semua Episode ({episodes.length})
               </h2>
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
                 {episodes.map((episode: Episode, index: number) => (
@@ -272,16 +297,10 @@ export default function AnimeDetailPage() {
                     key={episode.id}
                     to={`/watch/${encodeURIComponent(anime.id)}/${encodeURIComponent(episode.id)}`}
                     className={cn(
-                      "group relative flex items-center justify-center p-3 rounded-lg bg-card border border-border/50 hover:border-accent hover:bg-accent/10 transition-all opacity-0 slide-up"
+                      'group relative flex items-center justify-center p-2.5 rounded-md bg-card border border-white/[0.06] hover:border-accent hover:bg-accent/15 transition-all text-xs font-semibold text-neutral-200'
                     )}
-                    style={{ animationDelay: `${Math.min(index, 30) * 0.02}s`, animationFillMode: 'forwards' }}
                   >
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Play className="w-4 h-4 text-accent" />
-                    </div>
-                    <span className="font-medium text-sm group-hover:opacity-0 transition-opacity">
-                      {episode.number || index + 1}
-                    </span>
+                    <span>{episode.number || index + 1}</span>
                   </Link>
                 ))}
               </div>
@@ -291,9 +310,9 @@ export default function AnimeDetailPage() {
           {/* No Episodes State */}
           {episodes.length === 0 && (
             <EmptyState
-              type="donghua"
-              title="No episodes available"
-              description="Episodes for this donghua are not available yet."
+              type="anime"
+              title="Episode belum tersedia"
+              description="Episode untuk anime ini belum tersedia."
             />
           )}
         </div>
